@@ -26,3 +26,11 @@ Fitur ini dibuat untuk Excel sekolah/yayasan yang sudah lama dipakai dan biasany
 ## Catatan
 
 Import tetap harus dicek lewat preview. Payroll adalah data sensitif, jadi Edura tidak langsung menimpa data tanpa konfirmasi admin.
+
+
+## Update V4.7 Flexible Import Fix
+- Import Excel kini menggabungkan data antar sheet memakai KODESLIP/NRK agar payroll yang berisi kode seperti AA1 tetap bisa memakai nama asli dari sheet master.
+- Deteksi header lebih fleksibel: header boleh tidak berada di baris pertama.
+- Kolom masa kerja, join date, grade khusus, unit, rekening, dan gaji payroll seperti GAJI POKOK/TUNJANGAN/POTONGAN/GAJI BERSIH ikut dibaca.
+- Preview import sekarang menampilkan hasil terjemahan: Nama, Kode Slip, NRK, Jabatan, Golongan, Masa Kerja, Gaji Pokok, Tunjangan, Potongan, dan Gaji Bersih.
+- Sheet PER UNIT cocok dijadikan Payroll Awal, ABSENSI PER TMT cocok jadi master karyawan, Gapok jadi Golongan, dan TJ. FUNGSIONAL jadi Jabatan.
