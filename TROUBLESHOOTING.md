@@ -63,3 +63,13 @@ Solusi: paste ulang `master-apps-script-v5.gs` dari paket hotfix ini, lalu Apps 
 - Backend menggabungkan absensi dari karyawan dengan data admin supaya autosync admin tidak menimpa absensi baru dari server.
 - Hapus status absensi dari admin memakai tombstone sehingga data di Sheet/server ikut bersih.
 - Kontrol logo sekarang mengatur ukuran logo di dalam frame, posisi X/Y, dan warna live preview.
+
+
+## Import Excel tidak jalan
+
+Kemungkinan penyebab:
+
+1. Internet admin tidak aktif saat import. Pembaca Excel dimuat dari CDN.
+2. File Excel terlalu bebas/berantakan. Gunakan template resmi `template-import-edura.xlsx` agar paling aman.
+3. Nama kolom tidak terbaca. Pakai mapping manual pada menu Import Excel.
+4. Payroll awal tidak masuk karena nama/NIP di sheet Payroll Awal tidak cocok dengan data karyawan. Import karyawan dulu, baru import payroll awal.

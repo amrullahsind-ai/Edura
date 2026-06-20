@@ -4,7 +4,7 @@
   "start_url": "/admin.html",
   "display": "standalone",
   "background_color": "#f4f7fb",
-  "theme_color": "#2563eb",
+  "theme_color": "#0E3B36",
   "icons": [
     {
       "src": "/edura-logo.png",

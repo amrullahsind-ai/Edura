@@ -111,3 +111,17 @@ Catatan: Vercel hanya hosting frontend. Data login, password hash, lokasi, absen
 - Bug gaji Rp0 diperbaiki lewat fallback `baseSalary/salary` dan normalisasi data karyawan.
 - Warna Edura dikunci untuk brand identity.
 - Daftar panjang dibatasi di halaman utama; klik `Lihat semua` untuk membuka modal tengah.
+
+
+## Fitur Import Excel V4.5
+
+Versi ini menambahkan menu **Import Excel** di Edura Admin. Admin bisa:
+
+- download `template-import-edura.xlsx`;
+- upload Excel lama sekolah/yayasan;
+- preview sheet dan baris data;
+- mapping kolom untuk Excel bebas;
+- import data karyawan, jabatan, golongan, komponen gaji, potongan, dan payroll awal;
+- menyimpan payroll awal sebagai snapshot terkunci agar slip lama tidak berubah saat aturan gaji diedit.
+
+Catatan: fitur import Excel memakai library pembaca Excel dari CDN saat tombol import dipakai. Jadi perangkat admin perlu internet saat melakukan import.

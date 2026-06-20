@@ -61,3 +61,17 @@ Versi ini memakai autosync di Admin PWA. Setelah admin menyimpan karyawan, atura
 - Backend menggabungkan absensi dari karyawan dengan data admin supaya autosync admin tidak menimpa absensi baru dari server.
 - Hapus status absensi dari admin memakai tombstone sehingga data di Sheet/server ikut bersih.
 - Kontrol logo sekarang mengatur ukuran logo di dalam frame, posisi X/Y, dan warna live preview.
+
+
+## Fitur Import Excel V4.5
+
+Versi ini menambahkan menu **Import Excel** di Edura Admin. Admin bisa:
+
+- download `template-import-edura.xlsx`;
+- upload Excel lama sekolah/yayasan;
+- preview sheet dan baris data;
+- mapping kolom untuk Excel bebas;
+- import data karyawan, jabatan, golongan, komponen gaji, potongan, dan payroll awal;
+- menyimpan payroll awal sebagai snapshot terkunci agar slip lama tidak berubah saat aturan gaji diedit.
+
+Catatan: fitur import Excel memakai library pembaca Excel dari CDN saat tombol import dipakai. Jadi perangkat admin perlu internet saat melakukan import.
