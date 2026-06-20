@@ -73,3 +73,18 @@ Kemungkinan penyebab:
 2. File Excel terlalu bebas/berantakan. Gunakan template resmi `template-import-edura.xlsx` agar paling aman.
 3. Nama kolom tidak terbaca. Pakai mapping manual pada menu Import Excel.
 4. Payroll awal tidak masuk karena nama/NIP di sheet Payroll Awal tidak cocok dengan data karyawan. Import karyawan dulu, baru import payroll awal.
+
+
+## Update V4.6 — Import Excel Fleksibel
+
+Import Excel sekarang tidak bergantung pada nama sheet `Karyawan`, `Golongan`, atau `Payroll Awal`. Admin bisa upload Excel lama dengan banyak tab dan nama sheet bebas. Edura akan:
+
+- scan semua sheet;
+- mencari baris header otomatis walaupun ada judul di atas;
+- menebak jenis sheet: karyawan, jabatan, golongan, komponen, potongan, atau payroll;
+- menampilkan analisis semua sheet;
+- memberi pilihan centang/lewati sheet;
+- mengizinkan admin mengubah mode sheet;
+- tetap menyediakan mapping manual untuk sheet aktif.
+
+Untuk Excel gaji lama yang bentuknya kompleks, gunakan mode **Fleksibel / Scan Semua Sheet**, cek hasil analisis, lalu baru klik **Terapkan Import**.

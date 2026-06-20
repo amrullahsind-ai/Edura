@@ -75,3 +75,18 @@ Versi ini menambahkan menu **Import Excel** di Edura Admin. Admin bisa:
 - menyimpan payroll awal sebagai snapshot terkunci agar slip lama tidak berubah saat aturan gaji diedit.
 
 Catatan: fitur import Excel memakai library pembaca Excel dari CDN saat tombol import dipakai. Jadi perangkat admin perlu internet saat melakukan import.
+
+
+## Update V4.6 — Import Excel Fleksibel
+
+Import Excel sekarang tidak bergantung pada nama sheet `Karyawan`, `Golongan`, atau `Payroll Awal`. Admin bisa upload Excel lama dengan banyak tab dan nama sheet bebas. Edura akan:
+
+- scan semua sheet;
+- mencari baris header otomatis walaupun ada judul di atas;
+- menebak jenis sheet: karyawan, jabatan, golongan, komponen, potongan, atau payroll;
+- menampilkan analisis semua sheet;
+- memberi pilihan centang/lewati sheet;
+- mengizinkan admin mengubah mode sheet;
+- tetap menyediakan mapping manual untuk sheet aktif.
+
+Untuk Excel gaji lama yang bentuknya kompleks, gunakan mode **Fleksibel / Scan Semua Sheet**, cek hasil analisis, lalu baru klik **Terapkan Import**.
