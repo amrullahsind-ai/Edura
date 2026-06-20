@@ -71,6 +71,7 @@ function normalizeDataBeforeSave(data) {
 
   // Hapus request izin/sakit milik karyawan yang sudah dihapus permanen.
   data.attendanceRequests = (data.attendanceRequests || []).filter(r => validEmployees[r.employeeId]);
+  data.deviceRequests = (data.deviceRequests || []).filter(r => validEmployees[r.employeeId]);
 
   // Hapus item payroll draft/final milik karyawan yang sudah dihapus permanen.
   data.locks = data.locks || {};
@@ -97,7 +98,13 @@ function mergeServerLiveData(current, incoming) {
   (incoming.attendanceRequests || []).forEach(r => { if (r && r.id) reqMap[r.id] = Object.assign({}, reqMap[r.id] || {}, r); });
   out.attendanceRequests = Object.keys(reqMap).map(k => reqMap[k]);
 
-  // Jika karyawan baru saja ganti password, jangan kembalikan hash lama dari admin cache.
+    // Device requests dari employee juga digabung agar tidak hilang saat admin autosync.
+  const devReqMap = {};
+  (current.deviceRequests || []).forEach(r => { if (r && r.id) devReqMap[r.id] = r; });
+  (incoming.deviceRequests || []).forEach(r => { if (r && r.id) devReqMap[r.id] = Object.assign({}, devReqMap[r.id] || {}, r); });
+  out.deviceRequests = Object.keys(devReqMap).map(k => devReqMap[k]);
+
+  // Jika karyawan baru saja ganti password/device bind, jangan kembalikan data lama dari admin cache.
   const curEmp = {};
   (current.employees || []).forEach(e => { if (e && e.id) curEmp[e.id] = e; });
   out.employees = (incoming.employees || []).map(e => {
@@ -106,6 +113,7 @@ function mergeServerLiveData(current, incoming) {
       e.employeePinHash = old.employeePinHash;
       e.passwordChangedAt = old.passwordChangedAt;
     }
+    if (old && old.devices) e.devices = mergeDevices(old.devices || [], e.devices || []);
     return e;
   });
   return out;
@@ -157,11 +165,14 @@ function handleLoadEmployee(e) {
     const nip = clean(e.parameter.nip);
     const pinHash = clean(e.parameter.pinHash);
     const data = loadDataOrFail(license.licenseCode);
-    const emp = findEmployee(data, nip, pinHash);
+    const emp = findEmployee(data, nip, pinHash, clean(e.parameter.deviceId), clean(e.parameter.deviceName), license);
     const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
     const month = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM');
     const records = data.attendanceRecords || {};
     const todayRecord = records[today] ? records[today][emp.id] || null : null;
+    const todayRequest = (data.attendanceRequests || []).filter(r => r.employeeId === emp.id && r.date === today && r.status === 'pending').slice(-1)[0] || null;
+    savePayload(license, JSON.stringify(data));
+    writeMirrorTabs(license, data);
     const history = [];
     Object.keys(records).sort().reverse().slice(0, 45).forEach(date => {
       const r = records[date][emp.id];
@@ -169,7 +180,7 @@ function handleLoadEmployee(e) {
     });
     const slip = getEmployeeSlip(data, emp.id, month);
     writeLog(license.licenseCode, 'loadEmployee', 'OK ' + nip);
-    return jsonp(e, {ok:true, school:(data.settings||{}).school, employee:publicEmployee(emp, data), todayRecord, history, slip, attendanceRules:data.attendanceRules || {}});
+    return jsonp(e, {ok:true, school:(data.settings||{}).school, employee:publicEmployee(emp, data), todayRecord, todayRequest, deviceStatus:'aktif', history, slip, attendanceRules:data.attendanceRules || {}});
   } catch (err) { return jsonp(e, {ok:false,error:String(err.message || err)}); }
 }
 function handleEmployeeCheck(e, mode) {
@@ -179,7 +190,7 @@ function employeeCheckCore(e, mode) {
   try {
     const license = validateLicense(clean(e.parameter.licenseCode));
     const data = loadDataOrFail(license.licenseCode);
-    const emp = findEmployee(data, clean(e.parameter.nip), clean(e.parameter.pinHash));
+    const emp = findEmployee(data, clean(e.parameter.nip), clean(e.parameter.pinHash), clean(e.parameter.deviceId), clean(e.parameter.deviceName), license);
     const lat = Number(e.parameter.lat), lng = Number(e.parameter.lng), accuracy = Number(e.parameter.accuracy || 9999);
     const rules = data.attendanceRules || {};
     if (!lat || !lng) throw new Error('Koordinat GPS tidak valid');
@@ -195,15 +206,38 @@ function employeeCheckCore(e, mode) {
     const time = Utilities.formatDate(now, Session.getScriptTimeZone(), 'HH:mm');
     data.attendanceRecords = data.attendanceRecords || {};
     data.attendanceRecords[date] = data.attendanceRecords[date] || {};
+    data.attendanceRequests = data.attendanceRequests || [];
     let rec = data.attendanceRecords[date][emp.id] || {date:date, source:'employee'};
     if (accuracy > Number(activeLoc.maxAccuracyMeters || rules.maxAccuracyMeters || 150)) throw new Error('Akurasi GPS terlalu rendah: ' + Math.round(accuracy) + 'm. Pindah ke area terbuka lalu coba lagi.');
-    if (!allowed) throw new Error('Di luar semua titik absensi. Titik terdekat: ' + activeLoc.name + ', jarak Anda: ' + Math.round(dist) + 'm, radius yang diizinkan: ' + Number(activeLoc.radiusMeters || rules.radiusMeters || 80) + 'm.');
+
     if (mode === 'checkin') {
       if (rec.checkInTime || rec.status === 'hadir') throw new Error('Anda sudah check-in hari ini. Jika datanya salah, minta admin menghapus status absensi hari ini terlebih dahulu.');
       if (rec.status === 'izin' || rec.status === 'sakit' || rec.status === 'alpha') throw new Error('Status hari ini sudah ' + rec.status + '. Jika ingin check-in, minta admin menghapus status tersebut terlebih dahulu.');
+
+      const isLate = compareTime(time, rules.lateAfter || '07:15') > 0;
+      const tooLateNeedsApproval = compareTime(time, rules.lateApprovalAfter || '08:30') > 0;
+
+      if (!allowed || tooLateNeedsApproval) {
+        const reason = !allowed
+          ? 'Di luar radius. Titik terdekat: ' + activeLoc.name + ', jarak: ' + Math.round(dist) + 'm, radius: ' + Number(activeLoc.radiusMeters || rules.radiusMeters || 80) + 'm.'
+          : 'Check-in melewati batas approval telat ' + (rules.lateApprovalAfter || '08:30') + '.';
+        const req = {
+          id:'req_'+Date.now(), employeeId:emp.id, nip:emp.nip, type:'hadir', date:date,
+          reason:reason, status:'pending', createdAt:new Date().toISOString(), source:'employee_checkin',
+          checkInTime:time, isLate:isLate, lat:lat, lng:lng, accuracy:accuracy,
+          distanceMeters:dist, locationId:activeLoc.id || '', locationName:activeLoc.name || rules.name || 'Lokasi',
+          message:'Check-in masuk pengajuan dan menunggu persetujuan admin.'
+        };
+        data.attendanceRequests.push(req);
+        savePayload(license, JSON.stringify(data));
+        writeMirrorTabs(license, data);
+        writeLog(license.licenseCode, 'employee_checkin_pending', 'OK ' + emp.nip);
+        return {ok:true, request:req, message:req.message};
+      }
+
       rec.status = 'hadir';
       rec.hadirCount = 1;
-      rec.isLate = compareTime(time, rules.lateAfter || '07:15') > 0;
+      rec.isLate = isLate;
       rec.checkInTime = time;
       rec.checkInLat = lat;
       rec.checkInLng = lng;
@@ -215,6 +249,7 @@ function employeeCheckCore(e, mode) {
       rec.updatedBy = 'employee';
       rec.message = rec.isLate ? 'Check-in berhasil, status telat.' : 'Check-in berhasil, hadir 1 kali.';
     } else {
+      if (!allowed) throw new Error('Di luar semua titik absensi untuk check-out. Titik terdekat: ' + activeLoc.name + ', jarak Anda: ' + Math.round(dist) + 'm.');
       if (!rec.checkInTime && rules.requireCheckInBeforeCheckout !== false) throw new Error('Belum check-in, tidak bisa check-out');
       if (rec.checkOutTime) throw new Error('Anda sudah check-out hari ini. Jika datanya salah, minta admin menghapus/koreksi absensi.');
       rec.checkOutTime = time;
@@ -242,7 +277,7 @@ function employeeRequestCore(e) {
   try {
     const license = validateLicense(clean(e.parameter.licenseCode));
     const data = loadDataOrFail(license.licenseCode);
-    const emp = findEmployee(data, clean(e.parameter.nip), clean(e.parameter.pinHash));
+    const emp = findEmployee(data, clean(e.parameter.nip), clean(e.parameter.pinHash), clean(e.parameter.deviceId), clean(e.parameter.deviceName), license);
     const type = clean(e.parameter.type);
     const date = clean(e.parameter.date);
     const reason = clean(e.parameter.reason);
@@ -268,7 +303,7 @@ function employeeChangePasswordCore(e) {
   try {
     const license = validateLicense(clean(e.parameter.licenseCode));
     const data = loadDataOrFail(license.licenseCode);
-    const emp = findEmployee(data, clean(e.parameter.nip), clean(e.parameter.pinHash));
+    const emp = findEmployee(data, clean(e.parameter.nip), clean(e.parameter.pinHash), clean(e.parameter.deviceId), clean(e.parameter.deviceName), license);
     const newHash = clean(e.parameter.newHash);
     if (!newHash) throw new Error('Password baru kosong');
     const target = (data.employees || []).find(x => x.id === emp.id);
@@ -347,14 +382,56 @@ function savePayload(license, payload) {
   const data = [license.licenseCode, license.schoolCode, payload, new Date().toISOString()];
   if (row === -1) sh.appendRow(data); else sh.getRange(row,1,1,data.length).setValues([data]);
 }
-function findEmployee(data, login, pinHash) {
+function findEmployee(data, login, pinHash, deviceId, deviceName, license) {
   const needle = clean(login).toLowerCase();
   const emp = (data.employees || []).find(e => {
     const aliases = [e.loginName, e.name, e.nip].map(x => clean(x).toLowerCase()).filter(Boolean);
     return aliases.includes(needle) && clean(e.employeePinHash) === pinHash && e.status !== 'Nonaktif';
   });
   if (!emp) throw new Error('Nama/Login/PIN karyawan salah atau nonaktif');
+  validateEmployeeDevice(data, emp, deviceId, deviceName, license);
   return emp;
+}
+
+function validateEmployeeDevice(data, emp, deviceId, deviceName, license) {
+  data.settings = data.settings || {};
+  if (data.settings.deviceLock === false) return;
+  deviceId = clean(deviceId);
+  deviceName = clean(deviceName) || 'Device karyawan';
+  if (!deviceId) throw new Error('Device ID tidak terbaca. Refresh aplikasi lalu coba lagi.');
+  emp.devices = emp.devices || [];
+  const active = emp.devices.find(d => d.id === deviceId && d.status === 'active');
+  if (active) {
+    active.lastSeenAt = new Date().toISOString();
+    active.name = active.name || deviceName;
+    return;
+  }
+  const hasActive = emp.devices.some(d => d.status === 'active');
+  if (!hasActive) {
+    emp.devices.push({id:deviceId, name:deviceName, status:'active', approvedAt:new Date().toISOString(), lastSeenAt:new Date().toISOString(), firstDevice:true});
+    return;
+  }
+  data.deviceRequests = data.deviceRequests || [];
+  const existing = data.deviceRequests.find(r => r.employeeId === emp.id && r.deviceId === deviceId && r.status === 'pending');
+  if (!existing) {
+    data.deviceRequests.push({id:'devreq_'+Date.now(), employeeId:emp.id, name:emp.name, nip:emp.nip, deviceId:deviceId, deviceName:deviceName, status:'pending', createdAt:new Date().toISOString()});
+  }
+  if (license) {
+    savePayload(license, JSON.stringify(data));
+    writeMirrorTabs(license, data);
+  }
+  throw new Error('Perangkat baru terdeteksi. Pengajuan device sudah dikirim ke admin. Tunggu admin ACC dulu.');
+}
+
+function mergeDevices(serverDevices, incomingDevices) {
+  const map = {};
+  (incomingDevices || []).forEach(d => { if (d && d.id) map[d.id] = d; });
+  (serverDevices || []).forEach(d => {
+    if (!d || !d.id) return;
+    const cur = map[d.id] || {};
+    if (d.status === 'active' || !cur.status || cur.status === 'pending') map[d.id] = Object.assign({}, cur, d);
+  });
+  return Object.keys(map).map(k => map[k]);
 }
 function publicEmployee(e, data) {
   data = data || {};
@@ -385,6 +462,7 @@ function writeMirrorTabs(license, data) {
   writeTable(ss, prefix + '_components', data.components || []);
   writeTable(ss, prefix + '_locations', getAttendanceLocations(data.attendanceRules || {}));
   writeTable(ss, prefix + '_requests', data.attendanceRequests || []);
+  writeTable(ss, prefix + '_device_requests', data.deviceRequests || []);
   writeAttendance(ss, prefix + '_attendance', data.attendanceRecords || {}, data.employees || []);
   writeSentSlips(ss, prefix + '_sent_slips', data.sentSlips || {}, data.employees || []);
 }

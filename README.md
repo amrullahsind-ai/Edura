@@ -93,3 +93,12 @@ Catatan: Vercel hanya hosting frontend. Data login, password hash, lokasi, absen
 - Backend menggabungkan absensi dari karyawan dengan data admin supaya autosync admin tidak menimpa absensi baru dari server.
 - Hapus status absensi dari admin memakai tombstone sehingga data di Sheet/server ikut bersih.
 - Kontrol logo sekarang mengatur ukuran logo di dalam frame, posisi X/Y, dan warna live preview.
+
+
+## Update V4.3
+- Notifikasi kanan atas untuk perubahan admin.
+- Device lock: karyawan hanya bisa login di device aktif; device baru wajib approval admin.
+- Absensi di luar radius atau lewat batas approval telat masuk pengajuan admin, bukan langsung dihitung.
+- Golongan diambil dari contoh Excel dan mempengaruhi gaji pokok serta tunjangan kehadiran.
+- Jabatan fungsional diambil dari contoh Excel dan mempengaruhi tunjangan fungsional/rumah.
+- Lihat `ANALISIS_SAMPLE_GAJI.md` untuk ringkasan mapping dari Excel.

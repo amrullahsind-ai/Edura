@@ -1,4 +1,4 @@
-const CACHE='edura-repo-v2-attendance-sync-logo';
+const CACHE='edura-v4-3';
 const FILES=[
   '/',
   '/index.html',
@@ -7,8 +7,8 @@ const FILES=[
   '/credential-center.html',
   '/admin-manifest.json',
   '/employee-manifest.json',
-  '/edura-logo.png',
-  '/edura-logo.svg'
+  '/edura-v4-3',
+  '/edura-v4-3'
 ];
 
 self.addEventListener('install',event=>{
