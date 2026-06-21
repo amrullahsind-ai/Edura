@@ -96,3 +96,14 @@ Untuk Excel gaji lama yang bentuknya kompleks, gunakan mode **Fleksibel / Scan S
 - Kolom masa kerja, join date, grade khusus, unit, rekening, dan gaji payroll seperti GAJI POKOK/TUNJANGAN/POTONGAN/GAJI BERSIH ikut dibaca.
 - Preview import sekarang menampilkan hasil terjemahan: Nama, Kode Slip, NRK, Jabatan, Golongan, Masa Kerja, Gaji Pokok, Tunjangan, Potongan, dan Gaji Bersih.
 - Sheet PER UNIT cocok dijadikan Payroll Awal, ABSENSI PER TMT cocok jadi master karyawan, Gapok jadi Golongan, dan TJ. FUNGSIONAL jadi Jabatan.
+
+
+## Update V4.8 Import Excel Stabil
+Import Excel sekarang tidak lagi asal mengambil semua teks. Sheet slip/pinjaman/potongan dilewati default, kode seperti AA1 hanya dipakai jika berhasil dicocokkan ke nama asli, dan payroll dari PER UNIT mengikuti nominal Excel sebagai snapshot awal.
+
+
+## V5.0 Import Stability + UI Fix
+- Tombol aksi tabel dibuat menyamping.
+- Import Excel menolak baris judul/header agar tidak masuk sebagai karyawan.
+- Data karyawan dari Excel tidak langsung hilang saat pindah ke Payroll karena refresh server ditahan sampai autosync berjalan.
+- Jabatan/golongan hasil import tidak direset otomatis hanya karena jumlahnya banyak.
