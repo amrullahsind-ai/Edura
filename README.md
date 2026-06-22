@@ -183,3 +183,8 @@ Versi ini memperbaiki bug data Excel yang hilang setelah pindah tab/refresh. Set
 ## Catatan V6.3
 
 V6.3 menambahkan perbaikan database repair untuk error `Unexpected token 'D', "DEMO" is not valid JSON`. Jika payload di `_database` rusak, backend membackup ke `_database_broken` dan membuat database kosong valid. Lihat `V6_3_DATABASE_REPAIR.md`.
+
+
+## Klar V6.6 — Template Aturan Gaji + Lembur
+
+Paket ini menambahkan `template-import-klar.xlsx`. Template tersebut memungkinkan sekolah mengisi karyawan, jabatan, golongan, komponen gaji, jadwal, kalender libur, lembur, lalu menghasilkan sheet `Payroll Awal` yang bisa diimport ke Klar. Nominal `Gaji Bersih` di Payroll Awal dijaga sebagai snapshot agar gaji mengikuti logika Excel.
