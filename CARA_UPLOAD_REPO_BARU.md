@@ -1,9 +1,9 @@
-# Cara Upload Klar ke Repo GitHub Baru
+# Cara Upload Edura ke Repo GitHub Baru
 
 ## 1. Buat repo baru
 Di GitHub:
 - New repository
-- Nama contoh: `klar-app`
+- Nama contoh: `edura-app`
 - Pilih Private dulu agar aman
 - Jangan centang template lain jika ingin upload manual
 
@@ -21,14 +21,14 @@ File penting:
 - `admin-manifest.json`
 - `employee-manifest.json`
 - `service-worker.js`
-- `klar-logo.png`
-- `klar-logo.svg`
+- `edura-logo.png`
+- `edura-logo.svg`
 - `vercel.json`
 
 ## 3. Deploy ke Vercel
 - Buka Vercel
 - Add New Project
-- Import repo `klar-app`
+- Import repo `edura-app`
 - Framework: Other / Static
 - Build command: kosongkan
 - Output directory: kosongkan atau `.`
@@ -68,9 +68,9 @@ Kalau app masih terlihat versi lama, lakukan hard refresh atau buka incognito.
 
 ## Fitur Import Excel V4.5
 
-Versi ini menambahkan menu **Import Excel** di Klar Admin. Admin bisa:
+Versi ini menambahkan menu **Import Excel** di Edura Admin. Admin bisa:
 
-- download `template-import-klar.xlsx`;
+- download `template-import-edura.xlsx`;
 - upload Excel lama sekolah/yayasan;
 - preview sheet dan baris data;
 - mapping kolom untuk Excel bebas;
