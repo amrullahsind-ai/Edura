@@ -1,5 +1,5 @@
 /**
- * Klar V6.4 - Apps Script License Server (Stable Pilot)
+ * Klar V6.8 - Apps Script License Server (Stable Pilot)
  * Deploy: Execute as: Me, Who has access: Anyone with the link.
  * Supports: admin load/save, employee login by NIP/Login/Nama/Kode, check-in/out, request, change password.
  */
@@ -27,7 +27,7 @@ function route_(p, post){
   const action = p.action || 'loadAdmin';
   const licenseCode = String(p.licenseCode || DEFAULT_LICENSE).trim();
   ensure_();
-  if(action === 'ping' || action === 'health') return {ok:true, app:'Klar', version:'V6.4', licenseCode, time:new Date().toISOString()};
+  if(action === 'ping' || action === 'health') return {ok:true, app:'Klar', version:'V6.8', licenseCode, time:new Date().toISOString()};
   if(action === 'repairDatabase') return repairDatabase_(licenseCode, p.force === '1' || p.force === 'true');
   if(action === 'loadAdmin') return loadAdmin_(licenseCode);
   if(action === 'saveAdmin') return saveAdmin_(licenseCode, p.payload || '{}');
@@ -112,11 +112,11 @@ function normalizeDb_(data, licenseCode){
 }
 function defaultDb_(licenseCode, schoolName){
   return normalizeDb_({
-    version:'V6.4',
+    version:'V6.8',
     settings:{school: schoolName && schoolName !== 'DEMO' ? schoolName : 'Klar Demo', yayasan:'', logo:'', primary:'#085842', accent:'#39AE89'},
     employees:[], positions:[], grades:[], components:[], deductions:[],
     attendanceRecords:{}, attendanceRequests:[], deviceRequests:[], locks:{}, sentSlips:{}, auditLogs:[], backupLogs:[], importHistory:[],
-    _createdAt:new Date().toISOString(), _note:'Database dibuat/diperbaiki otomatis oleh Klar V6.4'
+    _createdAt:new Date().toISOString(), _note:'Database dibuat/diperbaiki otomatis oleh Klar V6.8'
   }, licenseCode);
 }
 function backupBroken_(licenseCode, raw, rowSnapshot, reason){
@@ -133,7 +133,7 @@ function ensureDemoLicense_(){
   try{
     const li = sh_(LICENSE_SHEET), vals = li.getDataRange().getValues();
     for(let i=1;i<vals.length;i++) if(String(vals[i][0]).trim() === DEFAULT_LICENSE) return;
-    li.appendRow([DEFAULT_LICENSE,'Klar Demo','active','demo','','Dibuat otomatis oleh Klar V6.4']);
+    li.appendRow([DEFAULT_LICENSE,'Klar Demo','active','demo','','Dibuat otomatis oleh Klar V6.8']);
   }catch(e){}
 }
 function repairDatabase_(licenseCode, force){
@@ -166,12 +166,14 @@ function loadAdmin_(licenseCode){
     savePayload_(licenseCode, data);
     return {ok:true, license:{licenseCode,status:'active'}, data, message:'Database baru dibuat otomatis.'};
   }
+  if(normalizeAllLateRecords_(data)) savePayload_(licenseCode, data);
   return {ok:true, license:{licenseCode,status:'active'}, data};
 }
 function saveAdmin_(licenseCode, payload){
   const parsed = safeParsePayload_(payload || '{}');
   if(!parsed.ok) throw new Error('Payload admin bukan JSON valid: ' + parsed.error);
   const data = normalizeDb_(parsed.data, licenseCode);
+  normalizeAllLateRecords_(data);
   data._serverUpdatedAt = new Date().toISOString();
   savePayload_(licenseCode, data);
   log_('saveAdmin', licenseCode, 'payload saved');
@@ -198,9 +200,11 @@ function withDB_(licenseCode, fn){
   savePayload_(licenseCode, db);
   return result;
 }
+function normalizeLateRecord_(db,r){ if(!r||!r.checkInTime) return r; const st=String(r.status||'').toLowerCase(); if(['izin','sakit','alpha','pending'].indexOf(st)>=0) return r; const late=lateInfo_(db,r.checkInTime); if(late.isLate){ r.status='telat'; r.isLate=true; r.lateMinutes=late.minutes; r.lateAfter=late.lateAfter; r.lateApprovalAfter=late.lateApprovalAfter; r.needsLateApproval=late.needsApproval; if(!r.message) r.message='Check-in telat '+(late.minutes?('+'+late.minutes+' menit'):''); } return r; }
+function normalizeAllLateRecords_(db){ let changed=false; const recs=db.attendanceRecords||{}; Object.keys(recs).forEach(date=>{Object.keys(recs[date]||{}).forEach(empId=>{const r=recs[date][empId]; const before=JSON.stringify({s:r&&r.status,l:r&&r.isLate,m:r&&r.lateMinutes,a:r&&r.lateAfter}); normalizeLateRecord_(db,r); const after=JSON.stringify({s:r&&r.status,l:r&&r.isLate,m:r&&r.lateMinutes,a:r&&r.lateAfter}); if(before!==after) changed=true;});}); return changed; }
 function empView_(db, emp, p){
   const d = today_();
-  const recs = db.attendanceRecords || {}; const todayRecord = (recs[d]||{})[emp.id] || null;
+  const recs = db.attendanceRecords || {}; const todayRecord = normalizeLateRecord_(db, ((recs[d]||{})[emp.id] || null));
   const pos = (db.positions||[]).find(x=>x.id===emp.position) || {}; const gr = (db.grades||[]).find(x=>x.id===emp.grade) || {};
   const hist = Object.keys(recs).sort().reverse().slice(0,40).map(date=>Object.assign({date}, (recs[date]||{})[emp.id]||{})).filter(x=>x.status);
   const slip = latestSlip_(db, emp.id);
@@ -208,13 +212,15 @@ function empView_(db, emp, p){
 }
 function loadEmployee_(licenseCode,p){ const db=loadPayload_(licenseCode); if(!db) throw new Error('Database belum ada. Sync dari Admin dulu.'); const emp=checkEmployee_(db,p); return empView_(db,emp,p); }
 function employeeChangePassword_(licenseCode,p){ return withDB_(licenseCode, db=>{ const emp=checkEmployee_(db,p); emp.employeePinHash = p.newHash; emp.updatedAt = new Date().toISOString(); log_('employeeChangePassword', licenseCode, emp.name); return {ok:true,message:'Password berhasil diganti'}; }); }
-function employeeCheckIn_(licenseCode,p){ return withDB_(licenseCode, db=>{ const emp=checkEmployee_(db,p); const d=today_(); db.attendanceRecords=db.attendanceRecords||{}; db.attendanceRecords[d]=db.attendanceRecords[d]||{}; if(db.attendanceRecords[d][emp.id] && db.attendanceRecords[d][emp.id].checkInTime) throw new Error('Sudah check-in hari ini.'); const r={status:'hadir',date:d,checkInTime:time_(),lat:Number(p.lat||0),lng:Number(p.lng||0),accuracy:Number(p.accuracy||0),source:'employee',message:'Check-in berhasil'}; db.attendanceRecords[d][emp.id]=r; return {ok:true,record:r}; }); }
+function employeeCheckIn_(licenseCode,p){ return withDB_(licenseCode, db=>{ const emp=checkEmployee_(db,p); const d=today_(); db.attendanceRecords=db.attendanceRecords||{}; db.attendanceRecords[d]=db.attendanceRecords[d]||{}; if(db.attendanceRecords[d][emp.id] && db.attendanceRecords[d][emp.id].checkInTime) throw new Error('Sudah check-in hari ini.'); const now=time_(); const late=lateInfo_(db, now); const r={status:late.isLate?'telat':'hadir',date:d,checkInTime:now,lat:Number(p.lat||0),lng:Number(p.lng||0),accuracy:Number(p.accuracy||0),source:'employee',isLate:late.isLate,lateMinutes:late.minutes,lateAfter:late.lateAfter,lateApprovalAfter:late.lateApprovalAfter,needsLateApproval:late.needsApproval,message:late.isLate?('Check-in berhasil, status TELAT '+(late.minutes?('('+late.minutes+' menit)'):'')+'.'):'Check-in berhasil'}; db.attendanceRecords[d][emp.id]=r; return {ok:true,record:r}; }); }
 function employeeCheckOut_(licenseCode,p){ return withDB_(licenseCode, db=>{ const emp=checkEmployee_(db,p); const d=today_(); db.attendanceRecords=db.attendanceRecords||{}; db.attendanceRecords[d]=db.attendanceRecords[d]||{}; const r=db.attendanceRecords[d][emp.id]; if(!r || !r.checkInTime) throw new Error('Belum check-in.'); if(r.checkOutTime) throw new Error('Sudah check-out.'); r.checkOutTime=time_(); r.checkoutLat=Number(p.lat||0); r.checkoutLng=Number(p.lng||0); r.checkoutAccuracy=Number(p.accuracy||0); r.checkoutMessage='Check-out berhasil'; return {ok:true,record:r}; }); }
 function employeeRequest_(licenseCode,p){ return withDB_(licenseCode, db=>{ const emp=checkEmployee_(db,p); db.attendanceRequests=db.attendanceRequests||[]; const r={id:'req_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),employeeId:emp.id,employeeName:emp.name,date:p.date||today_(),type:p.type||'izin',status:'pending',reason:p.reason||'',proof:p.proof||'',createdAt:new Date().toISOString()}; db.attendanceRequests.push(r); return {ok:true,record:r,message:'Pengajuan dikirim'}; }); }
 
 function archiveEmployee_(licenseCode, empId){ return withDB_(licenseCode, db=>{ const emp=(db.employees||[]).find(e=>e.id===empId); if(!emp) return {ok:false,error:'Karyawan tidak ditemukan'}; emp.status='Arsip'; emp.archivedAt=new Date().toISOString(); db.auditLogs=Array.isArray(db.auditLogs)?db.auditLogs:[]; db.auditLogs.unshift({id:'log_'+Date.now(),at:new Date().toISOString(),action:'archive_employee',message:'Karyawan diarsipkan: '+(emp.name||emp.nip||empId),meta:{employeeId:empId}}); db.auditLogs=db.auditLogs.slice(0,300); return {ok:true,message:'Karyawan diarsipkan'}; }); }
 function deleteEmployee_(licenseCode, empId){ return withDB_(licenseCode, db=>{ db._deletedEmployees=db._deletedEmployees||[]; if(empId && db._deletedEmployees.indexOf(empId)<0) db._deletedEmployees.push(empId); db.employees=(db.employees||[]).filter(e=>e.id!==empId); Object.keys(db.attendanceRecords||{}).forEach(d=>{ if(db.attendanceRecords[d]) delete db.attendanceRecords[d][empId]; }); db.attendanceRequests=(db.attendanceRequests||[]).filter(r=>r.employeeId!==empId); db.deviceRequests=(db.deviceRequests||[]).filter(r=>r.employeeId!==empId); Object.keys(db.locks||{}).forEach(m=>{ if(db.locks[m]&&db.locks[m].items) db.locks[m].items=db.locks[m].items.filter(x=>x.id!==empId); }); Object.keys(db.sentSlips||{}).forEach(m=>{ if(db.sentSlips[m]) delete db.sentSlips[m][empId]; }); return {ok:true,message:'Karyawan dihapus'}; }); }
 function latestSlip_(db, empId){ const sent=db.sentSlips||{}, locks=db.locks||{}; const months=Object.keys(sent).sort().reverse(); for(const m of months){ if(sent[m] && sent[m][empId] && locks[m] && locks[m].items){ const it=locks[m].items.find(x=>x.id===empId); if(it) return Object.assign({month:m}, it); } } return null; }
+function timeToMin_(hhmm){ const m=String(hhmm||'').match(/^(\d{1,2}):(\d{2})/); if(!m) return null; return Number(m[1])*60+Number(m[2]); }
+function lateInfo_(db, now){ const rules=(db&&db.attendanceRules)||{}; const lateAfter=rules.lateAfter||'07:15'; const approvalAfter=rules.lateApprovalAfter||'08:30'; const n=timeToMin_(now), l=timeToMin_(lateAfter), a=timeToMin_(approvalAfter); const isLate=(n!==null&&l!==null&&n>l); return {isLate, minutes:isLate?(n-l):0, lateAfter, lateApprovalAfter:approvalAfter, needsApproval:(isLate&&a!==null&&n>a)}; }
 function today_(){ return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Jakarta', 'yyyy-MM-dd'); }
 function time_(){ return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Jakarta', 'HH:mm'); }
 function years_(join, imported){ if(imported) return imported; if(!join) return 0; const a=new Date(join), b=new Date(); let y=b.getFullYear()-a.getFullYear(); if(b.getMonth()<a.getMonth() || (b.getMonth()===a.getMonth() && b.getDate()<a.getDate())) y--; return Math.max(0,y); }
