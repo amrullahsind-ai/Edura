@@ -113,7 +113,7 @@ function normalizeDb_(data, licenseCode){
 function defaultDb_(licenseCode, schoolName){
   return normalizeDb_({
     version:'V6.4',
-    settings:{school: schoolName && schoolName !== 'DEMO' ? schoolName : 'Klar Demo', yayasan:'', logo:'', primary:'#123C46', accent:'#F29B5B'},
+    settings:{school: schoolName && schoolName !== 'DEMO' ? schoolName : 'Klar Demo', yayasan:'', logo:'', primary:'#085842', accent:'#39AE89'},
     employees:[], positions:[], grades:[], components:[], deductions:[],
     attendanceRecords:{}, attendanceRequests:[], deviceRequests:[], locks:{}, sentSlips:{}, auditLogs:[], backupLogs:[], importHistory:[],
     _createdAt:new Date().toISOString(), _note:'Database dibuat/diperbaiki otomatis oleh Klar V6.4'

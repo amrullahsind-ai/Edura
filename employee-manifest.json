@@ -1,10 +1,10 @@
 {
   "name": "Klar Hadir",
-  "short_name": "Klar",
+  "short_name": "Klar Hadir",
   "start_url": "/employee.html",
   "display": "standalone",
-  "background_color": "#F7F7F2",
-  "theme_color": "#123C46",
+  "background_color": "#F5FBF8",
+  "theme_color": "#085842",
   "icons": [
     {
       "src": "/klar-logo.png",
